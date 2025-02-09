@@ -1,7 +1,7 @@
 import random
 import streamlit as st
 
-def generate_poker_problem():
+def generate_poker_problem(push_threshold):
     pot_size = random.choice([50, 100, 150, 200, 300, 400])
     bet_size = random.choice([pot_size // 4, pot_size // 2, pot_size, pot_size * 2])
     total_pot = pot_size + bet_size + bet_size
@@ -18,8 +18,16 @@ def generate_poker_problem():
     
     win_percent = outs * (4 if street == "Flop" else 2)  # Adjust equity based on street
     required_equity = round((bet_size / (pot_size + bet_size + bet_size)) * 100, 1)
-    correct_decision = "Call" if win_percent >= required_equity else "Fold"
     
+
+    if abs(win_percent - required_equity) <= push_threshold:
+        correct_decision = "Push"
+    elif win_percent > required_equity + push_threshold:
+        correct_decision = "Call"
+    else:
+        correct_decision = "Fold"
+
+
     return {
         "Street": street,
         "Pot Size": pot_size,
@@ -78,30 +86,42 @@ st.session_state.active_tab = tab_selection
 
 if st.session_state.active_tab == "Call or Fold Trainer":
     st.header("Call or Fold Trainer")
+    
+    # Slider to adjust "Push" threshold
+    push_threshold = st.slider("Set 'Push' Threshold (%) if win percent and equity are close", min_value=1, max_value=5, value=3)
+
+
     if "problem" not in st.session_state:
-        st.session_state.problem = generate_poker_problem()
+        st.session_state.problem = generate_poker_problem(push_threshold)
+
 
     def new_call_fold_problem():
         st.session_state.show_hints = {'outs': False, 'win': False, 'equity': False}
-        st.session_state.problem = generate_poker_problem()
+        st.session_state.problem = generate_poker_problem(push_threshold)
         st.session_state.result = None
 
     def check_decision(decision):
         problem = st.session_state.problem
+        correct_decision = problem["Correct Decision"]  # ✅ Get the correct decision from problem data
+
         result_text = f"You chose: {decision}\n\n"
         result_text += f"Correct Decision: {problem['Correct Decision']}\n"
         result_text += f"Win %: {problem['Win %']}%\n"
         result_text += f"Required Equity: {problem['Required Win %']}%\n"
         result_text += f"Number of Outs: {problem['Outs']}\n"
         
-        if decision == problem['Correct Decision']:
+        if decision == correct_decision:
             result_text = "✅ Correct! \n" + result_text 
+        elif correct_decision == "Push" and decision in ["Call", "Fold"]:
+            result_text = "⚖️ Close Decision! 'Push' was the best option, but Call/Fold were reasonable."
         else:
-            result_text = "❌ Wrong! \n" + result_text
+            result_text = "❌ Wrong! \n" + result_text 
         
         st.session_state.result = result_text
 
     problem = st.session_state.problem
+
+
 
     st.write(f"### You are on the {problem['Street']}")
     st.write(f"- **Pot Size:** ${problem['Pot Size']}")
@@ -113,6 +133,8 @@ if st.session_state.active_tab == "Call or Fold Trainer":
     if 'show_hints' not in st.session_state:
         st.session_state.show_hints = {'outs': False, 'win': False, 'equity': False}
 
+
+    st.write("### 🔍 Hints")
     col_hint1, col_hint2, col_hint3 = st.columns(3)
     with col_hint1:
         if st.button("Show/Hide Number of Outs"):
@@ -132,15 +154,19 @@ if st.session_state.active_tab == "Call or Fold Trainer":
 
 
     st.write("---")
-    st.write("### 👉 Do you call or fold?")
+    st.write("### 👉 Do you call or fold or is it a push?")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         if st.button("Call"):
             check_decision("Call")
     with col2:
         if st.button("Fold"):
             check_decision("Fold")
+    with col3:
+        if st.button("Push"):
+            check_decision("Push")
+    
 
     if "result" in st.session_state and st.session_state.result:
         st.write("---")
@@ -170,6 +196,30 @@ elif st.session_state.active_tab == "Bet Sizing Trainer":
     st.write(f"- **Pot Size:** ${bet_problem['Pot Size']}")
     st.write(f"- **Opponent's Hand:** {bet_problem['Opponent Hand']}")
     
+    # ✅ Ensure hint state exists for bet sizing
+    if "show_hints_bs" not in st.session_state:
+        st.session_state.show_hints_bs = {'outs': False, 'win': False}
+
+    # ✅ Ensure hint state exists for bet sizing
+    if "show_hints_bs" not in st.session_state:
+        st.session_state.show_hints_bs = {'outs': False, 'win': False}
+
+    st.write("### 🔍 Hints")
+
+    col_hint1, col_hint2 = st.columns(2)
+
+    with col_hint1:
+        if st.button("Show/Hide Opponent's Outs"):
+            st.session_state.show_hints_bs['outs'] = not st.session_state.show_hints_bs['outs']
+    if st.session_state.show_hints_bs['outs']:
+        st.write(f"📌 Opponent's Outs: {bet_problem['Opponent Outs']}")
+
+    with col_hint2:
+        if st.button("Show/Hide Opponent's Win %"):
+            st.session_state.show_hints_bs['win'] = not st.session_state.show_hints_bs['win']
+    if st.session_state.show_hints_bs['win']:
+        st.write(f"📌 Opponent's Win %: {bet_problem['Opponent Win %']}%")
+
     bet_input = st.number_input("Enter your bet to price out the opponent:", min_value=0, max_value=int(bet_problem['Max Bet']), step=1)
     your_equity = round(bet_input / (bet_problem['Pot Size'] + bet_input)*100,1)
     opponent_required_equity = round(bet_input / (bet_problem['Pot Size'] + 2*bet_input)*100,1)
@@ -186,7 +236,7 @@ elif st.session_state.active_tab == "Bet Sizing Trainer":
         st.write(st.session_state.bet_result)
         st.write(f"Opponent's Outs: {bet_problem['Opponent Outs']}")
         st.write(f"Opponent's Win %: {bet_problem['Opponent Win %']}%")
-        st.write(f"Your Minimum Bet To Get Them to Fold: {bet_problem['Minimum Bet']}")
+        st.write(f"Your Minimum Bet To Get Them to Fold: ${bet_problem['Minimum Bet']}")
         st.write(f"Opponent's Required Equity To Call Your Bet: {opponent_required_equity}%")
         st.write("---")
     
