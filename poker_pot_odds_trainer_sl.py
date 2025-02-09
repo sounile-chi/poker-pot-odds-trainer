@@ -12,7 +12,7 @@ def generate_poker_problem():
         "Open-Ended Straight Draw": 8,
         "Gutshot Straight Draw": 4,
         "Overcards": 6,
-        "Set to Full House": 7
+        # "Set to Full House": 7  <--remove this option as it was confusing
     }
     draw_type, outs = random.choice(list(draw_types.items()))
     
