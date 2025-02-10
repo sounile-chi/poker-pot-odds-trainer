@@ -2,8 +2,8 @@ import random
 import streamlit as st
 
 def generate_poker_problem(push_threshold):
-    pot_size = random.choice([50, 100, 150, 200, 300, 400])
-    bet_size = random.choice([pot_size // 4, pot_size // 2, pot_size, pot_size * 2])
+    pot_size = random.randint(100, 500)  # Any number between 100 and 500
+    bet_size = random.choice([pot_size // 4, pot_size // 2, pot_size, pot_size * 2, pot_size // 2, pot_size * 2// 3])
     total_pot = pot_size + bet_size + bet_size
     
     street = random.choice(["Flop", "Turn"])
@@ -49,7 +49,7 @@ def generate_bet_sizing_problem():
     }
     opponent_hand, opponent_outs = random.choice(list(HAND_TYPES.items()))
     
-    pot_size = random.choice([50, 100, 150, 200, 300, 400])
+    pot_size = random.randint(100, 500)  # Any number between 100 and 500
     street = random.choice(["Flop", "Turn"])
     opponent_win_percentage = opponent_outs * 4 if street == "Flop" else opponent_outs * 2
     required_equity = opponent_win_percentage / 100
@@ -127,7 +127,7 @@ if st.session_state.active_tab == "Call or Fold Trainer":
     st.write(f"- **Pot Size:** ${problem['Pot Size']}")
     st.write(f"- **Opponent Bets:** ${problem['Opponent Bet']}")
     # st.write(f"- **The Pot To You Is:** ${problem['Pot To You']}")
-    st.write(f"- **Your Hand:** {problem['Draw Type']}")
+    st.write(f"- **You are Drawing With:** {problem['Draw Type']}")
 
 
     if 'show_hints' not in st.session_state:
@@ -194,11 +194,22 @@ elif st.session_state.active_tab == "Bet Sizing Trainer":
     
     st.write(f"### You are on the {bet_problem['Street']}, and you are in the lead")
     st.write(f"- **Pot Size:** ${bet_problem['Pot Size']}")
-    st.write(f"- **Opponent's Hand:** {bet_problem['Opponent Hand']}")
+    st.write(f"- **Opponent's Estimated Hand:** {bet_problem['Opponent Hand']}")
     
-    # ✅ Ensure hint state exists for bet sizing
-    if "show_hints_bs" not in st.session_state:
-        st.session_state.show_hints_bs = {'outs': False, 'win': False}
+    # Define tolerance levels in a dictionary
+    tolerance_levels = {
+        15: 3,  # If opponent's required equity is ≤ 15%, allow ±3%
+        30: 5,  # If opponent's required equity is ≤ 30%, allow ±5%
+        100: 5  
+        # If opponent's required equity is > 30%, allow ±7%
+    }
+
+    # Function to determine appropriate tolerance
+    def get_tolerance(equity):
+        for threshold, tolerance in tolerance_levels.items():
+            if equity <= threshold:
+                return tolerance
+        return 5  # Default fallback (should never reach this)
 
     # ✅ Ensure hint state exists for bet sizing
     if "show_hints_bs" not in st.session_state:
@@ -220,23 +231,38 @@ elif st.session_state.active_tab == "Bet Sizing Trainer":
     if st.session_state.show_hints_bs['win']:
         st.write(f"📌 Opponent's Win %: {bet_problem['Opponent Win %']}%")
 
-    bet_input = st.number_input("Enter your bet to price out the opponent:", min_value=0, max_value=int(bet_problem['Max Bet']), step=1)
+    bet_input = st.number_input(
+        "Enter your bet to price out the opponent:", 
+        min_value=1,  # Ensure the bet is at least 1 to avoid auto-calculations at 0
+        max_value=int(bet_problem['Max Bet']), 
+        step=1
+    )
     your_equity = round(bet_input / (bet_problem['Pot Size'] + bet_input)*100,1)
     opponent_required_equity = round(bet_input / (bet_problem['Pot Size'] + 2*bet_input)*100,1)
-
-
-    if st.button("Submit Bet", key="submit_bet"):
-        if bet_input >= bet_problem['Minimum Bet']:
-            st.session_state.bet_result = f"✅ Correct! Your bet of ${bet_input} is high enough."
-        else:
-            st.session_state.bet_result = f"❌ Incorrect. Minimum required bet: ${bet_problem['Minimum Bet']}"
     
+    if st.button("Submit Bet", key="submit_bet") and bet_input > 0:
+        # Get the dynamic tolerance based on the opponent's required equity
+        tolerance = get_tolerance(opponent_required_equity)
+
+        # Determine the acceptable range
+        min_acceptable_equity = bet_problem['Opponent Win %'] - tolerance
+        max_acceptable_equity = bet_problem['Opponent Win %'] + tolerance
+
+       # Evaluate the bet
+        if min_acceptable_equity <= opponent_required_equity <= max_acceptable_equity:
+            st.session_state.bet_result = f"✅ Correct! Your bet of ${bet_input} is within the allowed equity range of ±{tolerance}%."
+        elif opponent_required_equity < min_acceptable_equity:
+            st.session_state.bet_result = f"❌ Too low. You should aim for an opponent required equity of at least {min_acceptable_equity}%."
+        else:  # opponent_required_equity > max_acceptable_equity
+            st.session_state.bet_result = f"❌ Too high. You should aim for an opponent required equity no more than {max_acceptable_equity}%."
+
+    # ✅ Only show results after submission
     if "bet_result" in st.session_state and st.session_state.bet_result:
         st.write("---")
         st.write(st.session_state.bet_result)
         st.write(f"Opponent's Outs: {bet_problem['Opponent Outs']}")
         st.write(f"Opponent's Win %: {bet_problem['Opponent Win %']}%")
-        st.write(f"Your Minimum Bet To Get Them to Fold: ${bet_problem['Minimum Bet']}")
+        st.write(f"Your Minimum Bet To Get Them to Fold: {bet_problem['Minimum Bet']}")
         st.write(f"Opponent's Required Equity To Call Your Bet: {opponent_required_equity}%")
         st.write("---")
     
