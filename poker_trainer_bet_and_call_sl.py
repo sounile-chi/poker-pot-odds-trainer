@@ -3,7 +3,7 @@ import streamlit as st
 
 def generate_poker_problem(push_threshold):
     pot_size = random.randint(100, 500)  # Any number between 100 and 500
-    bet_size = random.choice([pot_size // 4, pot_size // 2, pot_size, pot_size * 2, pot_size // 2, pot_size * 2// 3])
+    bet_size = random.choice([pot_size // 4, pot_size // 2, pot_size // 2, pot_size * 2// 3, pot_size // 3, pot_size*3//2])
     total_pot = pot_size + bet_size + bet_size
     
     street = random.choice(["Flop", "Turn"])
@@ -44,7 +44,7 @@ def generate_bet_sizing_problem():
     HAND_TYPES = {
         "Flush Draw": 9,
         "Open-Ended Straight Draw": 8,
-        "Gutshot Straight Draw": 4,
+        # "Gutshot Straight Draw": 4,  #you basically never call with gutshot alone so remove from tool
         "Overcards": 6
     }
     opponent_hand, opponent_outs = random.choice(list(HAND_TYPES.items()))
