@@ -10,7 +10,7 @@ def generate_poker_problem(push_threshold):
     draw_types = {
         "Flush Draw": 9,
         "Open-Ended Straight Draw": 8,
-        "Gutshot Straight Draw": 4,
+        # "Gutshot Straight Draw": 4,  #you basically never call with gutshot alone so remove from tool
         "Overcards": 6,
         # "Set to Full House": 7  <--remove this option as it was confusing
     }
@@ -44,7 +44,7 @@ def generate_bet_sizing_problem():
     HAND_TYPES = {
         "Flush Draw": 9,
         "Open-Ended Straight Draw": 8,
-        # "Gutshot Straight Draw": 4,  #you basically never call with gutshot alone so remove from tool
+        "Gutshot Straight Draw": 4,  
         "Overcards": 6
     }
     opponent_hand, opponent_outs = random.choice(list(HAND_TYPES.items()))
